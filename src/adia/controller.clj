@@ -1,5 +1,6 @@
 (ns adia.controller
   (:use compojure)
+  (:use adia.util)
   (:use [adia.model :as model]))
 
 (def *uri-mapping* (ref {}))
@@ -8,19 +9,7 @@
 (def *request* nil)
 (def *form* nil)
 
-(defn even-items [lst]
-  (loop [evens []
-         r     lst]
-    (if (< (count r) 2)
-      evens
-      (recur (conj evens (first r)) (rest (rest r))))))
-
-(defn odd-items [lst]
-  (loop [odds []
-         r     lst]
-    (if (< (count r) 2)
-      odds
-      (recur (conj odds (second r)) (rest (rest r))))))
+(def *message* nil)
 
 (defn convert-type [val type]
   (cond
@@ -34,7 +23,33 @@
                                       :value (*form* name))])
   ([name] (input-string {} name)))
 
-(defmacro defact
+(defn input-password 
+  ([attrs name] [:input (assoc attrs 
+                               :type "password"
+                               :name name
+                               :value (*form* name))])
+  ([name] (input-password {} name)))
+
+(defn input-text 
+  ([attrs name] [:textarea (assoc attrs :name name
+                                      (*form* name))])
+  ([name] (input-text {} name)))
+
+(defn form [webfn & body]
+  (form-to [:post (:uri webfn)]
+           body))
+
+(defn render [webfn & args]
+  (if (= (first args) :flash)
+    (binding [*message* (second args)]
+      (apply (:fn webfn) (rest (rest args))))
+    (apply (:fn webfn) args)))
+
+(defn redirect [webfn & args]
+  {:status 302
+   :headers {"Location" (:uri webfn)}})
+
+(defmacro defwebfn
   ([name doc-str attrs args body]
    (let [controller-parts (.split (str (ns-name *ns*)) "\\.")
          controller-name  (aget controller-parts (- (alength controller-parts) 1))
@@ -50,6 +65,7 @@
                                         (str "/" action-name)))))]
      `(do
         (def ~name {:name      (str (quote ~name))
+                    :uri       (str "/" ~uri)
                     :arg-names (quote ~(even-items args))
                     :arg-types (quote ~(odd-items args))
                     :doc       ~doc-str
@@ -60,6 +76,13 @@
           (commute *uri-mapping* assoc ~uri ~name)))))
   ([name doc-or-attrs args body] 
     (if (string? doc-or-attrs) ; doc
-     `(defact ~name ~doc-or-attrs {} ~args ~body)
-     `(defact ~name nil ~doc-or-attrs ~args ~body)))
-  ([name args body] `(defact ~name nil {} ~args ~body)))
+     `(defwebfn ~name ~doc-or-attrs {} ~args ~body)
+     `(defwebfn ~name nil ~doc-or-attrs ~args ~body)))
+  ([name args body] `(defwebfn ~name nil {} ~args ~body)))
+
+
+(defmacro on-error [webfn & body]
+  `(try
+     ~@body
+     (catch RuntimeException e#
+       (render ~webfn :flash (.. e# getCause getMessage)))))
