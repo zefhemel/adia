@@ -15,6 +15,10 @@
       odds
       (recur (conj odds (second r)) (rest (rest r))))))
 
+(defn keyword->str
+  [kw]
+  (.substring (str kw) 1))
+
 (defn- silent-read
   [s]
   (try

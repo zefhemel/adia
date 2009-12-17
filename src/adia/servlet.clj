@@ -28,18 +28,17 @@
                             ()
                             (.split (.substring uri (+ (.length controller-name) 1)) "/")))
         controller      (if controller-name (@*uri-mapping* controller-name))
-        args            (if controller-name (map convert-type uri-parts (:arg-types controller)))]
+        args            (if controller-name (map convert-kind uri-parts (:arg-types controller)))]
     (if controller
       (let [result (binding [*request*  request
-                             *form*     (:form-params request)]
+                             *form*     (:form-params request)
+                             *session*  (.getSession (:servlet-request request))]
                      (with-conn (apply (:fn controller) args)))]
         (if (string? result)
           {:status 200
            :headers {}
            :body result}
           result)))))
-
-(decorate handler (with-session :memory))
 
 (defroutes 
   webservice

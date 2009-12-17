@@ -8,15 +8,16 @@
 
 (def *request* nil)
 (def *form* nil)
+(def *session* nil)
 
 (def *message* nil)
 
-(defn convert-type [val type]
+(defn convert-kind [val kind]
   (cond
-    (= type :string) val
-    (= type :int) (Integer/parseInt val)
-    (keyword? type) (model/retrieve type val)
-    :else (throw (RuntimeException. (str "Could not convert to type: " type)))))
+    (= kind :string) val
+    (= kind :int) (Integer/parseInt val)
+    (fn? kind) (model/retrieve kind val)
+    :else (throw (RuntimeException. (str "Could not convert to kind: " kind)))))
 
 (defn input-string 
   ([attrs name] [:input (assoc attrs :name name
@@ -39,6 +40,19 @@
   (form-to [:post (:uri webfn)]
            body))
 
+(defn args-to-uri [arg-types args uri]
+  (if (empty? args)
+    uri
+    (recur (rest arg-types) (rest args) 
+           (str uri "/"
+                (condp = (first arg-types)
+                  :string  (str (first args))
+                  :int     (str (first args))
+                  (:id (first args)))))))
+
+(defn navigate [[webfn & args] & body]
+  [:a {:href (args-to-uri (:arg-types webfn) args (:uri webfn))} body])
+
 (defn render [webfn & args]
   (if (= (first args) :flash)
     (binding [*message* (second args)]
@@ -48,6 +62,12 @@
 (defn redirect [webfn & args]
   {:status 302
    :headers {"Location" (:uri webfn)}})
+
+(defn set-session! [key value]
+  (.setAttribute *session* (keyword->str key) value))
+
+(defn get-session [key]
+  (.getAttribute *session* (keyword->str key)))
 
 (defmacro defwebfn
   ([name doc-str attrs args body]
@@ -67,7 +87,7 @@
         (def ~name {:name      (str (quote ~name))
                     :uri       (str "/" ~uri)
                     :arg-names (quote ~(even-items args))
-                    :arg-types (quote ~(odd-items args))
+                    :arg-types ~(vec (odd-items args))
                     :doc       ~doc-str
                     :attrs     ~attrs
                     :fn        (fn [~@(even-items args)] ~body) })

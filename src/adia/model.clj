@@ -18,10 +18,6 @@
     rs query
     (doall rs)))
 
-(defn- keyword->str
-  [kw]
-  (.substring (str kw) 1))
-
 (defn col-def-to-sql [[name & col-def]]
   (condp = (first col-def)
     :string (if (= (count col-def) 2)
@@ -35,7 +31,7 @@
                    "UNIQUE"
                    "")])
               [name "VARCHAR(255)"])
-    :int      [name "INT"]
+    :int      [name "INT" "DEFAULT 0"]
     :password [name "VARCHAR(62)"]
     :email    [name "VARCHAR(80)"]
     :text     [name "MEDIUMTEXT"]
@@ -61,18 +57,20 @@
       (sql/update-values
         (kind :tblname)
         ["id = ?" (:id ent)]
-        (dissoc clean-ent :id))
+        clean-ent)
+        ;(dissoc clean-ent :id))
       (sql/insert-values
         (kind :tblname)
         (keys clean-ent) (vals clean-ent))))
-  (println "Persisted it!")
   (with-meta ent {:persisted true}))
 
 (defn retrieve
   "Retrieves an entity from the database"
   [kind id]
   (if-let [rs (query [(str "select * from " (kind :tblname) " where id = ?") id])]
-    (first rs)
+    (do 
+      (println (with-meta (assoc (first rs) :kind kind) {:persisted true}))
+      (with-meta (assoc (first rs) :kind kind) {:persisted true}))
     nil))
 
 (defn find-all-by [kind & prop-value-pairs]
