@@ -48,3 +48,6 @@
   (let [md (java.security.MessageDigest/getInstance "MD5")]
     (.update md (.getBytes str))
     (.toString (BigInteger. 1 (.digest md)) 16)))
+
+(defn timestamp-now []
+  (int (/ (System/currentTimeMillis) 1000)))

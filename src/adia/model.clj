@@ -1,98 +1,65 @@
 (ns adia.model
-  (:use [clojure.contrib.sql :as sql])
   (:use adia.util)
+  (:require [somnium.congomongo :as mongo])
   (:gen-class))
-
-(def *db-config* (ref {}))
 
 (def *db-entites* (ref {}))
 
-(defmacro with-conn [& body]
-  `(sql/with-connection
-     @*db-config*
-     (sql/transaction
-       ~@body)))
+(defn- mongo->adia
+  [kind ent]
+  (if ent
+    (assoc (dissoc ent :_ns) :_kind kind)))
 
-(defn- query [query]
-  (with-query-results 
-    rs query
-    (doall rs)))
+(defn- adia->mongo
+  [kind ent]
+  (if ent
+    (assoc (dissoc ent :_kind) :_ns (kind :tblname))))
 
-(defn col-def-to-sql [[name & col-def]]
-  (condp = (first col-def)
-    :string (if (= (count col-def) 2)
-              (let [attrs (second col-def)]
-                [name (str "VARCHAR(" 
-                           (if (:length attrs)
-                             (:length attrs)
-                             "255")
-                           ")")
-                 (if (:unique (second col-def))
-                   "UNIQUE"
-                   "")])
-              [name "VARCHAR(255)"])
-    :int      [name "INT" "DEFAULT 0"]
-    :password [name "VARCHAR(62)"]
-    :email    [name "VARCHAR(80)"]
-    :text     [name "MEDIUMTEXT"]
-    ; else, entity reference
-    [name "VARCHAR(36)"]))
-
-(defn sync-database-metadata [name]
-  (with-conn
-    (let [all-tables (mapcat vals (query ["SHOW TABLES"]))]
-      (if-not (some #(= %1 (str name)) all-tables)
-        (apply sql/create-table
-               (keyword (str name))
-               [:id "varchar(64)" "PRIMARY KEY"]
-               (map col-def-to-sql ((*db-entites* name) :properties)))))))
+(defn sync-database-metadata 
+  "Nothing for now"
+  [name]
+  true)
 
 (defn persist!
   "Persists a given entity to the database"
   [ent]
-  (let [kind       (:kind ent)
-        clean-ent  (dissoc ent :kind)
-        persisted  (:persisted ^ent)]
-    (if persisted
-      (sql/update-values
-        (kind :tblname)
-        ["id = ?" (:id ent)]
-        clean-ent)
-        ;(dissoc clean-ent :id))
-      (sql/insert-values
-        (kind :tblname)
-        (keys clean-ent) (vals clean-ent))))
-  (with-meta ent {:persisted true}))
+  (let [kind       (:_kind ent)
+        clean-ent  (adia->mongo kind ent)]
+    (mongo/save! (kind :tblname) clean-ent)))
+
+(defn delete!
+  [ent]
+  (mongo/destroy! ((:_kind ent) :tblname) {:_id (:_id ent)}))
 
 (defn retrieve
   "Retrieves an entity from the database"
   [kind id]
-  (if-let [rs (query [(str "select * from " (kind :tblname) " where id = ?") id])]
-    (do 
-      (println (with-meta (assoc (first rs) :kind kind) {:persisted true}))
-      (with-meta (assoc (first rs) :kind kind) {:persisted true}))
-    nil))
+  (mongo->adia kind (mongo/fetch-one (kind :tblname) :where {:_id id})))
 
 (defn find-all-by [kind & prop-value-pairs]
-  (query (apply vector 
-                (str "select * from " (kind :tblname) " where "
-                     (reduce #(str %1 " AND " %2)
-                             (map #(str "`" (keyword->str %1) "` = ?") (even-items prop-value-pairs))))
-                (odd-items prop-value-pairs))))
+  (map mongo->adia (cycle [kind]) (mongo/fetch (kind :tblname) :where (apply array-map prop-value-pairs))))
+
+(defn find-all [kind & args]
+  (map mongo->adia (cycle [kind]) (apply mongo/fetch (kind :tblname) args)))
 
 (defn find-by [kind & prop-value-pairs]
-  (if-let [results (apply find-all-by kind prop-value-pairs)]
-    (first results)
-    nil))
+  (mongo->adia kind 
+               (let [result (mongo/fetch-one (kind :tblname) :where (apply array-map prop-value-pairs))]
+                 result)))
 
 (defn retrieve-all
   "Retrieves an entity from the database"
   [kind]
-  (query [(str "select * from " (kind :tblname))]))
+  (find-all-by kind))
 
-(defn set-db-config! [config]
+(def *db-config* (ref {}))
+
+(defn set-db-config! [& config]
   (dosync
     (ref-set *db-config* config)))
+
+(defn connect-db []
+  (apply mongo/mongo! @*db-config*))
 
 (defn- bind-property [ent value spec]
   (let [column-type (second spec)]
@@ -103,8 +70,8 @@
                             (> (count value) (:length attrs)))
                      (throw (RuntimeException. (str "Value '" value "' is too, long, maximum length: " (:length attrs)))))
                    (if (:unique attrs)
-                     (if-let [duplicate (find-by (:kind ent) (first spec) value)]
-                       (if-not (= (:id ent) (:id duplicate))
+                     (if-let [duplicate (find-by (:_kind ent) (first spec) value)]
+                       (if-not (= (:_id ent) (:_id duplicate))
                          (throw (RuntimeException. (str "Value '" value "' is not unique."))))))
                    value)
                  value)
@@ -129,23 +96,19 @@
 (defn databind 
   ([ent values-map selected-properties] 
    (apply assoc ent 
-          (mapcat (fn [k] [k (bind-property ent (values-map k) (lookup-property (:kind ent) k))])
+          (mapcat (fn [k] [k (bind-property ent (values-map k) (lookup-property (:_kind ent) k))])
                   selected-properties)))
   ([ent values-map] (databind ent values-map (keys values-map))))
 
 (defmacro defent [name & properties]
   `(do
      (defn ~name
-       ([] (with-meta {:kind ~name
-                       :id (str (java.util.UUID/randomUUID))}
+       ([] (with-meta {:_kind ~name
+                       :_id (str (java.util.UUID/randomUUID))}
                       {:persisted false}))
        ([key#] ({:tblname    (str (quote ~name))
                  :properties [~@properties]} key#))
-       ([k# v# & kvs# ] (with-meta
-                          (apply assoc {:kind ~name
-                                        :id (str (java.util.UUID/randomUUID))}
-                                 k# v# kvs#)
-                          {:persisted false})))
+       ([k# v# & kvs# ] (apply assoc {:_kind ~name} k# v# kvs#)))
      (dosync 
        (commute *db-entites* assoc (quote ~name) ~name))
      (sync-database-metadata (quote ~name))))

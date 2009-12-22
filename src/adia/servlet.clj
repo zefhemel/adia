@@ -21,6 +21,7 @@
     :else (find-prefix-match (rest coll) uri)))
 
 (defn handler [request]
+  (connect-db)
   (let [uri             (.substring (:uri request) 1)
         controller-name (find-prefix-match @*uri-list* uri)
         uri-parts       (if controller-name
@@ -33,7 +34,7 @@
       (let [result (binding [*request*  request
                              *form*     (:form-params request)
                              *session*  (.getSession (:servlet-request request))]
-                     (with-conn (apply (:fn controller) args)))]
+                     (apply (:fn controller) args))]
         (if (string? result)
           {:status 200
            :headers {}
@@ -44,12 +45,7 @@
   webservice
   (ANY "/*"
        (or 
-         (try
-           (handler request)
-           (catch Throwable e
-             (print-stack-trace e)
-             (println)
-             "Internal server error"))
+         (handler request)
          (serve-file (params :*)) 
          (page-not-found))))
 

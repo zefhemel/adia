@@ -1,7 +1,8 @@
 (ns adia.controller
   (:use compojure)
   (:use adia.util)
-  (:use [adia.model :as model]))
+  (:require [adia.model :as model])
+  (:require [somnium.congomongo :as mongo]))
 
 (def *uri-mapping* (ref {}))
 (def *uri-list* (ref []))
@@ -16,12 +17,14 @@
   (cond
     (= kind :string) val
     (= kind :int) (Integer/parseInt val)
-    (fn? kind) (model/retrieve kind val)
+    (fn? kind) (model/retrieve kind (mongo/object-id val))
     :else (throw (RuntimeException. (str "Could not convert to kind: " kind)))))
 
 (defn input-string 
-  ([attrs name] [:input (assoc attrs :name name
-                                      :value (*form* name))])
+  ([attrs name] [:input (assoc attrs 
+                               :name name
+                               :value (*form* name)
+                               :class "input-string")])
   ([name] (input-string {} name)))
 
 (defn input-password 
@@ -36,10 +39,6 @@
                                       (*form* name))])
   ([name] (input-text {} name)))
 
-(defn form [webfn & body]
-  (form-to [:post (:uri webfn)]
-           body))
-
 (defn args-to-uri [arg-types args uri]
   (if (empty? args)
     uri
@@ -48,7 +47,11 @@
                 (condp = (first arg-types)
                   :string  (str (first args))
                   :int     (str (first args))
-                  (:id (first args)))))))
+                  (:_id (first args)))))))
+
+(defn form [[webfn & args] & body]
+  (form-to [:post (args-to-uri (:arg-types webfn) args (:uri webfn))]
+           body))
 
 (defn navigate [[webfn & args] & body]
   [:a {:href (args-to-uri (:arg-types webfn) args (:uri webfn))} body])
@@ -59,9 +62,9 @@
       (apply (:fn webfn) (rest (rest args))))
     (apply (:fn webfn) args)))
 
-(defn redirect [webfn & args]
+(defn redirect [[webfn & args] & args]
   {:status 302
-   :headers {"Location" (:uri webfn)}})
+   :headers {"Location" (args-to-uri (:arg-types webfn) args (:uri webfn))}})
 
 (defn set-session! [key value]
   (.setAttribute *session* (keyword->str key) value))

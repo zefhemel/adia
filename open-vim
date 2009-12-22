@@ -2,10 +2,4 @@
 
 cd src
 
-java -cp $CLASSPATH:/zef/hg/vimclojure/build/vimclojure.jar com.martiansoftware.nailgun.NGServer 127.0.0.1 &
-
-echo $?
-
-sleep 2
-
 mvim */*.clj
