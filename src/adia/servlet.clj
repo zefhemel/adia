@@ -33,6 +33,7 @@
     (if controller
       (let [result (binding [*request*  request
                              *form*     (:form-params request)
+                             *query*    (:query-params request)
                              *session*  (.getSession (:servlet-request request))]
                      (apply (:fn controller) args))]
         (if (string? result)
