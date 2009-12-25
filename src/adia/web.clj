@@ -13,7 +13,7 @@
 
 (defn- validating-onblur [nam]
   (if *in-validated-form*
-    (str "validateForm(this.form, '" (:uri *in-validated-form*) "', '" (name nam) "')")))
+    (str "validateForm(this.form, '" (*in-validated-form* :uri) "', '" (name nam) "')")))
 
 (defn- error-div [nam]
   [:div.error-message 
@@ -88,7 +88,7 @@
 
 (defmacro validated-form [validator call & body]
   `(binding [*in-validated-form* ~validator]
-    (form ~call {:onsubmit (str "validateForm(this, '" (:uri ~validator) "', ''); return false")} ~@body)))
+    (form ~call {:onsubmit (str "validateForm(this, '" (~validator :uri) "', ''); return false")} ~@body)))
 
 (defn navigate [call & body]
   [:a {:href (call-to-uri call)} body])
@@ -98,10 +98,10 @@
    :headers {"Location" (call-to-uri call)}})
 
 (defn set-session! [key value]
-  (.setAttribute *session* (keyword->str key) value))
+  (.setAttribute *session* (name key) value))
 
 (defn get-session [key]
-  (.getAttribute *session* (keyword->str key)))
+  (.getAttribute *session* (name key)))
 
 (defmacro defwebfn [name args & body]
    (let [controller-parts (.split (str (ns-name *ns*)) "\\.")

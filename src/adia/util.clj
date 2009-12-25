@@ -15,10 +15,6 @@
       odds
       (recur (conj odds (second r)) (rest (rest r))))))
 
-(defn keyword->str
-  [kw]
-  (.substring (str kw) 1))
-
 (defn- silent-read
   [s]
   (try
@@ -51,3 +47,9 @@
 
 (defn timestamp-now []
   (int (/ (System/currentTimeMillis) 1000)))
+
+(defn markdown [text]
+  (.markdown (com.petebevin.markdown.MarkdownProcessor.) text))
+
+(defn markdown-no-p [text]
+  (second (re-find #"^<p>(.+)</p>$" (markdown text))))
