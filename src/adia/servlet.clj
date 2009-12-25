@@ -1,9 +1,8 @@
 (ns adia.servlet
-  (:use clojure.stacktrace)
   (:use compojure)
   (:use [clojure.contrib.sql :as sql])
   (:use adia.model)
-  (:use adia.controller)
+  (:use adia.web)
   (:gen-class
      :extends javax.servlet.http.HttpServlet))
 
@@ -15,10 +14,16 @@
                                      (if (= controller-name uri) ; no params
                                        controller-name
                                        (if (= (count (.split (.substring uri (+ (.length controller-name) 1)) "/"))
-                                              (count (:arg-names controller)))
+                                              (count (controller :arg-names)))
                                          controller-name
                                          (find-prefix-match (rest coll) uri))))
     :else (find-prefix-match (rest coll) uri)))
+
+(defn convert-kind [val kind]
+  (try
+    (kind val)
+    (catch Exception e
+      (throw (RuntimeException. (str "Invalid argument: " val))))))
 
 (defn handler [request]
   (connect-db)
@@ -29,13 +34,13 @@
                             ()
                             (.split (.substring uri (+ (.length controller-name) 1)) "/")))
         controller      (if controller-name (@*uri-mapping* controller-name))
-        args            (if controller-name (map convert-kind uri-parts (:arg-types controller)))]
+        args            (if controller-name (map convert-kind uri-parts (controller :arg-types)))]
     (if controller
       (let [result (binding [*request*  request
                              *form*     (:form-params request)
                              *query*    (:query-params request)
                              *session*  (.getSession (:servlet-request request))]
-                     (apply (:fn controller) args))]
+                     (apply controller args))]
         (if (string? result)
           {:status 200
            :headers {}

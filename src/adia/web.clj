@@ -1,25 +1,15 @@
-(ns adia.controller
+(ns adia.web
   (:use compojure)
-  (:use adia.util)
-  (:require [adia.model :as model])
-  (:require [somnium.congomongo :as mongo]))
+  (:use adia.util))
 
 (def *uri-mapping* (ref {}))
 (def *uri-list* (ref []))
-
 (def *request* nil)
 (def *form* nil)
 (def *query* nil)
 (def *session* nil)
 (def *message* nil)
 (def *in-validated-form* nil)
-
-(defn convert-kind [val kind]
-  (cond
-    (= kind :string) val
-    (= kind :int) (Integer/parseInt val)
-    (fn? kind) (model/retrieve kind (mongo/object-id val))
-    :else (throw (RuntimeException. (str "Could not convert to kind: " kind)))))
 
 (defn- validating-onblur [nam]
   (if *in-validated-form*
@@ -28,6 +18,11 @@
 (defn- error-div [nam]
   [:div.error-message 
    {:id (str "validation-message-" (name nam))}])
+
+(defn integer 
+  "Parse a string as integer, useful as parameter type"
+  [s]
+  (Integer/parseInt s))
 
 (defn input-string 
   ([attrs nam] [:span
@@ -75,11 +70,11 @@
 (defn call-to-uri [call]
   (if (vector? call)
     (let [[webfn & args] call]
-      (if (map? webfn)
-        (args-to-uri args (:uri webfn))
+      (if (fn? webfn)
+        (args-to-uri args (webfn :uri))
         (args-to-uri args webfn)))
-    (if (map? call)
-      (:uri call)
+    (if (fn? call)
+      (call :uri)
       call)))
 
 (defn form [call attrs & body]
@@ -97,12 +92,6 @@
 
 (defn navigate [call & body]
   [:a {:href (call-to-uri call)} body])
-
-(defn render [webfn & args]
-  (if (= (first args) :flash)
-    (binding [*message* (second args)]
-      (apply (:fn webfn) (rest (rest args))))
-    (apply (:fn webfn) args)))
 
 (defn redirect [call]
   {:status 302
@@ -126,18 +115,23 @@
                                       ""
                                       (str "/" action-name))))]
      `(do
-        (def ~name {:name      (str (quote ~name))
-                    :uri       (str "/" ~uri)
-                    :arg-names (quote ~(even-items args))
-                    :arg-types ~(vec (odd-items args))
-                    :fn        (fn [~@(even-items args)] ~@body) })
+        (def ~name 
+          (fn [& fn-args#]
+            (if (and (= 1 (count fn-args#)) (keyword? (first fn-args#)))
+              ({:name      (str (quote ~name))
+                :uri       (str "/" ~uri)
+                 :arg-names (quote ~(even-items args))
+                :arg-types ~(vec (odd-items args))}
+               (first fn-args#))
+              (apply (fn [~@(even-items args)] ~@body) fn-args#))))
         (dosync 
           (ref-set *uri-list*  (sort (fn [e1# e2#] (> (.length e1#) (.length e2#))) 
                                      (conj @*uri-list* ~uri)))
           (commute *uri-mapping* assoc ~uri ~name)))))
 
-(defmacro on-error [webfn & body]
+(comment
+  (defmacro on-error [webfn & body]
   `(try
-     ~@body
-     (catch RuntimeException e#
-       (render ~webfn :flash (.. e# getCause getMessage)))))
+  ~@body
+  (catch RuntimeException e#
+  (render ~webfn :flash (.. e# getCause getMessage))))))

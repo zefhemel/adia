@@ -31,26 +31,32 @@
   [ent]
   (mongo/destroy! ((:_kind ent) :tblname) {:_id (:_id ent)}))
 
+(defn update-inc!
+  "Add one to counter"
+  [ent field n]
+  (mongo/update! ((:_kind ent) :tblname) (adia->mongo (:_kind ent) ent) {:$inc {field n}})
+  (assoc ent field (+ (if (field ent)
+                        (field ent)
+                        0) n)))
+
+(defn query [kind & args]
+  (map mongo->adia (cycle [kind]) (apply mongo/fetch (kind :tblname) args)))
+
+(defn query-one [kind & args]
+  (let [result (apply query kind args)]
+    (if-not (empty? result)
+      (first result)
+      nil)))
+
 (defn retrieve
   "Retrieves an entity from the database"
   [kind id]
-  (mongo->adia kind (mongo/fetch-one (kind :tblname) :where {:_id id})))
-
-(defn find-all-by [kind & prop-value-pairs]
-  (map mongo->adia (cycle [kind]) (mongo/fetch (kind :tblname) :where (apply array-map prop-value-pairs))))
-
-(defn find-all [kind & args]
-  (map mongo->adia (cycle [kind]) (apply mongo/fetch (kind :tblname) args)))
-
-(defn find-by [kind & prop-value-pairs]
-  (mongo->adia kind 
-               (let [result (mongo/fetch-one (kind :tblname) :where (apply array-map prop-value-pairs))]
-                 result)))
+  (query-one kind :where {:_id id}))
 
 (defn retrieve-all
   "Retrieves an entity from the database"
   [kind]
-  (find-all-by kind))
+  (query kind))
 
 (def *db-config* (ref {}))
 
@@ -70,7 +76,7 @@
                             (> (count value) (:length attrs)))
                      (throw (RuntimeException. (str "Value '" value "' is too, long, maximum length: " (:length attrs)))))
                    (if (:unique attrs)
-                     (if-let [duplicate (find-by (:_kind ent) (first spec) value)]
+                     (if-let [duplicate (query-one (:_kind ent) :where {(first spec) value})]
                        (if-not (= (:_id ent) (:_id duplicate))
                          (throw (RuntimeException. (str "Value '" value "' is not unique."))))))
                    value)
@@ -103,11 +109,11 @@
 (defmacro defent [name & properties]
   `(do
      (defn ~name
-       ([] (with-meta {:_kind ~name
-                       :_id (str (java.util.UUID/randomUUID))}
-                      {:persisted false}))
-       ([key#] ({:tblname    (str (quote ~name))
-                 :properties [~@properties]} key#))
+       ([] {:_kind ~name})
+       ([key#] (if (string? key#)
+                 (retrieve ~name (mongo/object-id key#))
+                 ({:tblname    (str (quote ~name))
+                   :properties [~@properties]} key#)))
        ([k# v# & kvs# ] (apply assoc {:_kind ~name} k# v# kvs#)))
      (dosync 
        (commute *db-entites* assoc (quote ~name) ~name))
