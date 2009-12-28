@@ -25,15 +25,16 @@
   (Integer/parseInt s))
 
 (defn input-string 
-  ([attrs nam] [:span
-                [:input (assoc attrs 
-                               :name nam
-                               :value (*form* nam)
-                               :class "input-string"
-                               :onblur (validating-onblur nam)
-                               :id (str "input-" (name nam)))]
+  ([nam value] [:span
+                [:input {:name nam
+                         :value (if (*form* nam)
+                                  (*form* nam)
+                                  value)
+                         :class "input-string"
+                         :onblur (validating-onblur nam)
+                         :id (str "input-" (name nam))}]
                 (error-div nam)])
-  ([nam] (input-string {} nam)))
+  ([nam] (input-string nam "")))
 
 (defn input-password 
   ([attrs nam] [:span

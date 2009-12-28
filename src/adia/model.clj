@@ -110,10 +110,11 @@
   `(do
      (defn ~name
        ([] {:_kind ~name})
-       ([key#] (if (string? key#)
-                 (retrieve ~name (mongo/object-id key#))
-                 ({:tblname    (str (quote ~name))
-                   :properties [~@properties]} key#)))
+       ([key#] (cond 
+                 (instance? com.mongodb.ObjectId key#) (retrieve ~name key#)
+                 (string? key#) (retrieve ~name (mongo/object-id key#))
+                 :else ({:tblname    (str (quote ~name))
+                         :properties [~@properties]} key#)))
        ([k# v# & kvs# ] (apply assoc {:_kind ~name} k# v# kvs#)))
      (dosync 
        (commute *db-entites* assoc (quote ~name) ~name))
