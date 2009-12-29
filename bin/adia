@@ -1,0 +1,11 @@
+#!/bin/bash
+
+ADIA_PATH=~/git/adia
+
+export CLASSPATH=.:$ADIA_PATH/src
+
+for j in $ADIA_PATH/lib/*.jar; do
+  export CLASSPATH=$j:$CLASSPATH
+done
+
+java jline.ConsoleRunner clojure.main -i application.clj
