@@ -6,4 +6,5 @@
                            [org.clojure/clojure-contrib "1.0-SNAPSHOT"]
                            [org.clojars.liebke/compojure "0.3.1-master"]
                            [org.markdownj/markdownj "0.3.0-1.0.2b4"]
+                           [jline/jline "0.9.94"]
                            [congomongo "0.1-zefhemel"]])

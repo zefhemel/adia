@@ -2,10 +2,75 @@
 
 ADIA_PATH=~/git/adia
 
-export CLASSPATH=.:$ADIA_PATH/src
 
+#################################
+export CLASSPATH=.:src:$ADIA_PATH/src
 for j in $ADIA_PATH/lib/*.jar; do
   export CLASSPATH=$j:$CLASSPATH
 done
 
-java jline.ConsoleRunner clojure.main -i application.clj
+COMMAND=$1
+
+case $COMMAND in
+  "new" )
+    echo -n "Project name: "
+    read PROJECTNAME
+    mkdir $PROJECTNAME
+    mkdir -p $PROJECTNAME/src/$PROJECTNAME
+    mkdir $PROJECTFILE/public
+    PROJECTFILE=$PROJECTNAME/application.clj
+    echo "(ns application" > $PROJECTFILE
+    echo "  (:require $PROJECTNAME.index)" >> $PROJECTFILE
+    echo "  (:use compojure)" >> $PROJECTFILE
+    echo "  (:use adia.servlet))" >> $PROJECTFILE
+    echo "" >> $PROJECTFILE
+    echo "(run-server {:port 8080}" >> $PROJECTFILE
+    echo "  \"/*\" (servlet webservice))" >> $PROJECTFILE
+
+    INDEXFILE=$PROJECTNAME/src/$PROJECTNAME/index.clj
+    echo "(ns $PROJECTNAME.index" > $INDEXFILE
+    echo "  (:use compojure)" >> $INDEXFILE
+    echo "  (:use adia.model)" >> $INDEXFILE
+    echo "  (:use adia.web)" >> $INDEXFILE
+    echo "  (:use $PROJECTNAME.template)" >> $INDEXFILE
+    echo "  (:require [$PROJECTNAME.model :as model])" >> $INDEXFILE
+    echo "  (:gen-class))" >> $INDEXFILE
+    echo "" >> $INDEXFILE
+    echo "(defwebfn index []" >> $INDEXFILE
+    echo "  (main-layout" >> $INDEXFILE
+    echo "    \"Hello\"" >> $INDEXFILE
+    echo "    [:h1 \"Hello world!\"]))" >> $INDEXFILE
+
+    TEMPLATEFILE=$PROJECTNAME/src/$PROJECTNAME/template.clj
+    echo "(ns $PROJECTNAME.template" > $TEMPLATEFILE
+    echo "  (:use compojure)" >> $TEMPLATEFILE
+    echo "  (:use adia.web)" >> $TEMPLATEFILE
+    echo "  (:gen-class))" >> $TEMPLATEFILE
+    echo "" >> $TEMPLATEFILE
+    echo "(defn main-layout" >> $TEMPLATEFILE
+    echo "  [title & body]" >> $TEMPLATEFILE
+    echo "  (html" >> $TEMPLATEFILE
+    echo "    (doctype :html4)" >> $TEMPLATEFILE
+    echo "    [:html" >> $TEMPLATEFILE
+    echo "     [:head" >> $TEMPLATEFILE
+    echo "      [:title (h title)]]" >> $TEMPLATEFILE
+    echo "     [:body" >> $TEMPLATEFILE
+    echo "       body]]))" >> $TEMPLATEFILE
+  
+    MODELFILE=$PROJECTNAME/src/$PROJECTNAME/model.clj
+    echo "(ns $PROJECTNAME.model" > $MODELFILE
+    echo "  (:use adia.model))" >> $MODELFILE
+    echo "" >> $MODELFILE
+    echo "(set-db-config! :db \"$PROJECTNAME\")" >> $MODELFILE
+    echo "" >> $MODELFILE
+    echo "(defent User" >> $MODELFILE
+    echo "  [:username :string {:unique true}]" >> $MODELFILE
+    echo "  [:email    :email])" >> $MODELFILE
+    
+    ;;
+
+    "run" )
+      java jline.ConsoleRunner clojure.main -i application.clj
+    ;;
+esac
+
