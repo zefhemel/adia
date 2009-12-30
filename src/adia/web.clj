@@ -2,8 +2,10 @@
   (:use compojure)
   (:use adia.util))
 
-(def *uri-mapping* (ref {}))
+(def *webfns* (ref {}) ; unique id -> map
+(def *uri-mapping* (ref {})) ; uri prefix -> unique id
 (def *uri-list* (ref []))
+(def *localhost* (ref nil))
 (def *request* nil)
 (def *form* nil)
 (def *query* nil)
@@ -48,15 +50,16 @@
   ([nam] (input-password {} nam)))
 
 (defn input-text 
-  ([attrs nam] [:span
-                [:textarea (assoc attrs 
-                                  :name nam
-                                  :class "input-text"
-                                  :onblur (validating-onblur nam)
-                                  :id (str "input-" (name nam))
-                                  (*form* nam))]
+  ([nam value] [:span
+                [:textarea {:name nam
+                            :class "input-text"
+                            :onblur (validating-onblur nam)
+                            :id (str "input-" (name nam))}
+                 (if (*form* nam)
+                   (*form* nam)
+                   value)]
                 (error-div nam)])
-  ([nam] (input-text {} nam)))
+  ([nam] (input-text nam "")))
 
 (defn- args-to-uri [args uri]
   (if (empty? args)

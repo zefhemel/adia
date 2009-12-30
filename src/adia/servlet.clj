@@ -27,6 +27,8 @@
 
 (defn handler [request]
   (connect-db)
+  (if (nil? @*localhost*)
+    (dosync (ref-set *localhost* ((:headers request) "host"))))
   (let [uri             (.substring (:uri request) 1)
         controller-name (find-prefix-match @*uri-list* uri)
         uri-parts       (if controller-name
