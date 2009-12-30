@@ -2,7 +2,7 @@
   (:use compojure)
   (:use adia.util))
 
-(def *webfns* (ref {}) ; unique id -> map
+(def *webfns* (ref {})) ; unique id -> map
 (def *uri-mapping* (ref {})) ; uri prefix -> unique id
 (def *uri-list* (ref []))
 (def *localhost* (ref nil))
@@ -81,21 +81,37 @@
       (call :uri)
       call)))
 
+(defn can-access? [call]
+  (if (vector? call)
+    (let [[webfn & args] call]
+      (if (fn? webfn)
+        (if (webfn :can-access?) ; does it have an AC function?
+          (apply (webfn :can-access?) args)
+          true)
+        true))
+    (if (fn? call)
+      (if (call :can-access?) ; does it have an AC function?
+        ((call :can-access?))
+        true)
+      true)))
+
 (defn form [call attrs & body]
-  (let [atts {:method :post :action (call-to-uri call)}]
-    [:form (if (map? attrs)
-             (merge atts attrs)
-             atts)
-     (if-not (map? attrs)
-       attrs)
-     body]))
+  (if (can-access? call)
+    (let [atts {:method :post :action (call-to-uri call)}]
+      [:form (if (map? attrs)
+               (merge atts attrs)
+               atts)
+       (if-not (map? attrs)
+         attrs)
+       body])))
 
 (defmacro validated-form [validator call & body]
   `(binding [*in-validated-form* ~validator]
     (form ~call {:onsubmit (str "validateForm(this, '" (~validator :uri) "', ''); return false")} ~@body)))
 
 (defn navigate [call & body]
-  [:a {:href (call-to-uri call)} body])
+  (if (can-access? call)
+    [:a {:href (call-to-uri call)} body]))
 
 (defn redirect [call]
   {:status 302
@@ -110,6 +126,7 @@
 (defmacro defwebfn [name args & body]
    (let [controller-parts (.split (str (ns-name *ns*)) "\\.")
          controller-name  (aget controller-parts (- (alength controller-parts) 1))
+         unique-name      (keyword (gensym "webfn"))
          action-name      (if (= name 'index)
                             ""
                             (str name))
@@ -119,19 +136,36 @@
                                       ""
                                       (str "/" action-name))))]
      `(do
-        (def ~name 
-          (fn [& fn-args#]
-            (if (and (= 1 (count fn-args#)) (keyword? (first fn-args#)))
-              ({:name      (str (quote ~name))
-                :uri       (str "/" ~uri)
-                 :arg-names (quote ~(even-items args))
-                :arg-types ~(vec (odd-items args))}
-               (first fn-args#))
-              (apply (fn [~@(even-items args)] ~@body) fn-args#))))
+        (dosync
+          (commute *webfns* assoc ~unique-name
+                   {:name        (str (quote ~name))
+                    :unique-name ~unique-name
+                    :uri         (str "/" ~uri)
+                    :arg-names   (quote ~(even-items args))
+                    :arg-types   ~(vec (odd-items args))
+                    :fn          (fn [~@(even-items args)] ~@body)
+                    :fn-body     (quote ~@body)}))
+        (defn ~name [& fn-args#]
+          (if (and (= 1 (count fn-args#)) (keyword? (first fn-args#)))
+            (if (= (first fn-args#) :meta)
+              (@*webfns* ~unique-name)
+              ((@*webfns* ~unique-name) (first fn-args#)))
+            (apply (:fn (@*webfns* ~unique-name)) fn-args#)))
         (dosync 
           (ref-set *uri-list*  (sort (fn [e1# e2#] (> (.length e1#) (.length e2#))) 
                                      (conj @*uri-list* ~uri)))
-          (commute *uri-mapping* assoc ~uri ~name)))))
+          (commute *uri-mapping* assoc ~uri ~unique-name)))))
+
+(defn assoc-webfn!
+  "Change the function body of an already defined webfn. Use with care!"
+  [webfn & args]
+  (let [meta-map    (webfn :meta)
+        unique-name (:unique-name meta-map)]
+    (dosync
+      (ref-set *webfns* (assoc @*webfns* unique-name 
+                               (apply assoc meta-map args))))))
+
+;:fn-body fn-body :fn (eval `(fn [~@(:arg-names meta-map)] ~@fn-body))))))))
 
 (comment
   (defmacro on-error [webfn & body]

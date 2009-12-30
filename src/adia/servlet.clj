@@ -10,11 +10,11 @@
   (cond
     (empty? coll) nil
     (.startsWith uri (first coll)) (let [controller-name (first coll)
-                                         controller      (@*uri-mapping* controller-name)]
+                                         controller-map  (@*webfns* (@*uri-mapping* controller-name))]
                                      (if (= controller-name uri) ; no params
                                        controller-name
                                        (if (= (count (.split (.substring uri (+ (.length controller-name) 1)) "/"))
-                                              (count (controller :arg-names)))
+                                              (count (:arg-names controller-map)))
                                          controller-name
                                          (find-prefix-match (rest coll) uri))))
     :else (find-prefix-match (rest coll) uri)))
@@ -35,8 +35,9 @@
                           (if (= controller-name uri) ; no params
                             ()
                             (.split (.substring uri (+ (.length controller-name) 1)) "/")))
-        controller      (if controller-name (@*uri-mapping* controller-name))
-        args            (if controller-name (map convert-kind uri-parts (controller :arg-types)))]
+        meta-map        (if controller-name (@*webfns* (@*uri-mapping* controller-name)))
+        controller      (if controller-name (:fn meta-map))
+        args            (if controller-name (map convert-kind uri-parts (:arg-types meta-map)))]
     (if controller
       (let [result (binding [*request*  request
                              *form*     (:form-params request)

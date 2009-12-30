@@ -70,7 +70,8 @@ case $COMMAND in
     ;;
 
     "run" )
-      java jline.ConsoleRunner clojure.main -i application.clj
+      java jline.ConsoleRunner clojure.lang.Repl application.clj
+      #java jline.ConsoleRunner clojure.main -i application.clj
     ;;
 esac
 
