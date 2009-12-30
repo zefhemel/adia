@@ -30,7 +30,17 @@ This will ask for a project name, for instance `helloworld`. Then cd into that d
     cd helloworld
     adia run
 
-A server will now be started at port 8080, go to [http://localhost:8080](http://localhost:8080) to see your application running. See `examples/wiki` for a very simple wiki application. You can run this application similarly:
+A server will now be started at port 8080, go to [http://localhost:8080](http://localhost:8080) to see your application running. 
+
+Examples
+========
+
+See `examples/wiki` for a very simple wiki application. You can run this application similarly:
 
     cd ~/mygit/adia/examples/wiki
     adia run
+
+Documentation
+=============
+
+Sorry, the documentation is *very* limited right now.
