@@ -3,7 +3,7 @@ Adia is a web language developed using Clojure. It currently uses MongoDB for da
 Installation instructions
 =========================
 
-First, install [leiningen](http://github.com/technomancy/leiningen), e.g. by [following these instructions](http://zef.me/2470/building-clojure-projects-with-leiningen).
+First, install [leiningen](http://github.com/technomancy/leiningen), e.g. by [following these instructions](http://zef.me/2470/building-clojure-projects-with-leiningen). Then, install [MongoDB](http://www.mongodb.org) if you haven't already. Launch the MongoDB server.
 
 Then, `cd` to the directory where you keep your git repositories, then clone
 Adia's git repository and let leiningen download all its dependencies:
