@@ -59,3 +59,7 @@
          (page-not-found))))
 
 (defservice webservice)
+
+(defn start-server [port]
+  (run-server {:port port}
+              "/*" (servlet webservice)))

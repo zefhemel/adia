@@ -1,11 +1,8 @@
 (ns wiki.index
   (:use compojure)
-  (:use adia.model)
-  (:use adia.web)
-  (:use adia.util)
-  (:use adia.ac)
-  (:use wiki.template)
+  (:use adia.model adia.web adia.ac adia.util)
   (:require [adia.openid :as openid])
+  (:use wiki.template)
   (:require [wiki.model :as model])
   (:gen-class))
 
@@ -27,8 +24,7 @@
 (defwebfn handle-add []
   (let [p (databind (model/Page :author (get-session :username)) 
                     *form* [:title :text])]
-    (persist! p)
-    (redirect index)))
+    (redirect [show (persist! p)])))
 
 (defac handle-add (get-session :username))
 
@@ -55,6 +51,8 @@
     (persist! new-p)
     (redirect [show new-p])))
 
+(defac handle-edit (= (get-session :username) (:author p)))
+
 (defn handle-login [m]
   (set-session! :username (str (:first-name m) " " (:last-name m)))
   (redirect index))
@@ -63,4 +61,4 @@
   (set-session! :username nil)
   (redirect index))
 
-(openid/set-callback handle-login)
+(openid/set-callback! handle-login)

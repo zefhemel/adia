@@ -1,6 +1,5 @@
 (ns wiki.model
-  (:use adia.model)
-  (:require [adia.openid :as openid]))
+  (:use adia.model))
 
 (set-db-config! :db "wiki")
 

@@ -12,7 +12,7 @@
                                                             (.setRealm (str "http://" host))
                                                             (.setTimeOut 10000))))))
 
-(defn set-callback [fn]
+(defn set-callback! [fn]
   (def *openid-callback-webfn* fn))
 
 (defwebfn login [service str]

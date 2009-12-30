@@ -14,9 +14,7 @@
       (if-let [username (get-session :username)]
         [:span "Hello, " username " " (navigate ["/logout"] "[ Logout ]")]
         [:span "Login with "
-         (navigate ["/openid/login" "Google"] "Google")
-         " or "
-         (navigate ["/openid/login" "Yahoo"] "Yahoo")])
+         (navigate ["/openid/login" "Google"] "Google")])
       [:hr]
       body
       [:hr]
