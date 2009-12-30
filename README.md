@@ -12,7 +12,7 @@ Adia's git repository and let leiningen download all its dependencies:
     cd adia
     lein deps
 
-Edit the bin/adia script and change the ADIA_PATH variable, e.g.:
+Edit the `bin/adia` script and change the ADIA_PATH variable, e.g.:
 
     ADIA_PATH=~/mygit/adia
 
@@ -30,4 +30,7 @@ This will ask for a project name, for instance `helloworld`. Then cd into that d
     cd helloworld
     adia run
 
-A server will now be started at port 8080, go to http://localhost:8080 to see your application running.
+A server will now be started at port 8080, go to [http://localhost:8080](http://localhost:8080) to see your application running. See `examples/wiki` for a very simple wiki application. You can run this application similarly:
+
+    cd ~/mygit/adia/examples/wiki
+    adia run
